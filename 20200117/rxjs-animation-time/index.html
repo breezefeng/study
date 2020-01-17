@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <style>
+    .wrapper {
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      border: 1px dashed #ccc;
+    }
+
+    .hand {
+      margin-top: 114px;
+      transform-origin: center;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 6px 0 6px 240px;
+      border-color: transparent transparent transparent black;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div class="hand"></div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/6.5.3/rxjs.umd.min.js"></script>
+  <script>
+    const { interval, animationFrameScheduler, defer, timer } = rxjs
+    const { map, takeWhile, tap, bufferCount, startWith, switchMap } = rxjs.operators
+
+    const hand = document.querySelector('.hand')
+
+    const msElapsed = (scheduler = animationFrameScheduler) => defer(() => {
+      const start = scheduler.now()
+      return interval(0, animationFrameScheduler).pipe(
+        map(() => scheduler.now() - start)
+      )
+    })
+
+    const duration = (ms, scheduler = animationFrameScheduler) => msElapsed(scheduler).pipe(
+      map(ems => ems / ms),
+      takeWhile(t => t <= 1)
+    )
+
+    const distance = d => t => t * d
+
+    const elasticOut = t => Math.sin(-13.0 * (t + 1.0) * Math.PI / 2) * Math.pow(2.0, -10.0 * t) + 1.0
+
+    const prevAndCurrent = initialValue => source$ => source$.pipe(
+      startWith(initialValue),
+      bufferCount(2, 1)
+    )
+
+    const tween = (ms, easing) => source$ => source$.pipe(
+      prevAndCurrent(0),
+      switchMap(([p, n]) => duration(ms).pipe(
+        map(easing),
+        map(distance(n - p)),
+        map(v => n + v)
+      ))
+    )
+
+    timer(0, 1000).pipe(
+      map(t => t * 360 / 60),
+      tween(900, elasticOut)
+    ).subscribe(dist => {
+      hand.style.transform = `rotate(${dist}deg)`
+    })
+
+  </script>
+</body>
+
+</html>

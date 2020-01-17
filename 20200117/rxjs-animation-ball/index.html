@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <style>
+    .ball {
+      width: 100px;
+      height: 100px;
+      border-radius: 100%;
+      background-color: red;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ball"></div>
+  <div style="margin-top: 30px;margin-left: 20px;">
+    <button onclick="start()">开始运动</button>
+    <button onclick="reset()" style="margin-left: 20px;">重置</button>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/6.5.3/rxjs.umd.min.js"></script>
+  <script>
+    const { interval, animationFrameScheduler, defer, timer, Subject, merge } = rxjs
+    const { map, takeWhile, tap, bufferCount, startWith, takeUntil } = rxjs.operators
+
+    const ball = document.querySelector('.ball')
+    const start$ = new Subject()
+    const reset$ = new Subject()
+
+    const msElapsed = (scheduler = animationFrameScheduler) => defer(() => {
+      const start = scheduler.now()
+      return interval(0, animationFrameScheduler).pipe(
+        map(() => scheduler.now() - start)
+      )
+    })
+
+    const duration = (ms, scheduler = animationFrameScheduler) => msElapsed(scheduler).pipe(
+      map(ems => ems / ms),
+      takeWhile(t => t <= 1)
+    )
+
+    const distance = d => t => t * d
+
+    const elasticOut = t => Math.sin(-13.0 * (t + 1.0) * Math.PI / 2) * Math.pow(2.0, -10.0 * t) + 1.0
+
+    const moveBall = duration$ => duration(2000).pipe(
+      map(elasticOut),
+      map(distance(200)),
+      tap(frame => {
+        ball.style.transform = `translate3d(${frame}px, 0, 0)`
+      }),
+      takeUntil(merge(
+        start$,
+        reset$
+      ))
+    )
+
+    function start() {
+      start$.next()
+      moveBall(duration(2000)).subscribe()
+    }
+
+    function reset() {
+      reset$.next()
+      ball.style.transform = 'translate3d(0, 0, 0)'
+    }
+
+  </script>
+</body>
+
+</html>
